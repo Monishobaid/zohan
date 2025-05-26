@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  avatar        String?
+  googleId      String?   @unique
+  provider      String    @default("google")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  documents     Document[]
+  folders       Folder[]
+  tags          Tag[]
+  
+  @@map("users")
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  storagePath String   // Supabase storage path
+  publicUrl   String?  // Public URL from Supabase
+  uploadedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  
+  // Many-to-many with tags
+  documentTags DocumentTag[]
+  
+  @@map("documents")
+}
+
+model Folder {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?  @default("#3B82F6")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[] @relation("FolderHierarchy")
+  documents   Document[]
+  
+  @@map("folders")
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#10B981")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentTags DocumentTag[]
+  
+  @@unique([name, userId])
+  @@map("tags")
+}
+
+model DocumentTag {
+  id         String   @id @default(cuid())
+  documentId String
+  tagId      String
+  createdAt  DateTime @default(now())
+  
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([documentId, tagId])
+  @@map("document_tags")
+}
